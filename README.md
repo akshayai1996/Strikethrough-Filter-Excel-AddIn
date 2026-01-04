@@ -21,8 +21,8 @@ This add-in provides a **one-click toggle** to filter rows where text is struck 
 - Toggling removes the helper and restores the sheet
 
 ## 📦 Files
-- `src/StrikethroughFilter.bas` – Core logic
-- `src/ThisWorkbook.bas` – Application-level event handling
+- `src/StrikethroughFilter.bas` – Core logic to be added in standard module 
+- `src/ThisWorkbook.bas` – Application-level event handling to be added in this workbook module 
 
 ## 🚀 Installation
 1. Open Excel → `Alt + F11`
