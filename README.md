@@ -23,7 +23,6 @@ This add-in provides a **one-click toggle** to filter rows where text is struck 
 ## 📦 Files
 - `src/StrikethroughFilter.bas` – Core logic
 - `src/ThisWorkbook.bas` – Application-level event handling
-- `addin/StrikethroughFilter.xlam` – Ready-to-use add-in (optional)
 
 ## 🚀 Installation
 1. Open Excel → `Alt + F11`
