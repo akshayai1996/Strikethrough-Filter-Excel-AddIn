@@ -1,43 +1,55 @@
-# Strikethrough-Filter-Excel-AddIn
-Excel Add-In to toggle strikethrough-based filtering (not natively supported by Excel)
+# Strikethrough Filter (Excel VBA)
 
-# Strikethrough Filter – Excel Add-In (.xlam)
+A safe Excel VBA macro that filters rows based on **strikethrough formatting** in a selected column.
 
-Excel does not natively support filtering rows based on **strikethrough formatting**.  
-This add-in provides a **one-click toggle** to filter rows where text is struck through.
+Compatible with **Excel 2010 – Microsoft 365**.
 
-## ✨ Features
-- Toggle ON/OFF strikethrough-based filtering
-- Right-click context menu integration
-- Handles partial (mixed) strikethrough correctly
-- Optimized for large datasets (50k–100k rows)
-- Hidden helper column (clean UI)
-- Auto-cleanup on Excel close
-- Works across all workbooks via `.xlam`
+---
 
-## 🧠 How It Works
-- A temporary hidden helper column detects `Font.Strikethrough`
-- Excel AutoFilter is applied using this helper
-- Toggling removes the helper and restores the sheet
+## Function
 
-## 📦 Files
-- `src/StrikethroughFilter.bas` – Core logic to be added in standard module 
-- `src/ThisWorkbook.bas` – Application-level event handling to be added in this workbook module 
+- Shows rows **without** strikethrough  
+- Hides rows **with** strikethrough  
+- Uses Excel **AutoFilter**  
+- Toggle-safe: run again to fully restore the sheet  
 
-## 🚀 Installation
-1. Open Excel → `Alt + F11`
-2. Import both `.bas` files
-3. Save workbook as **Excel Add-In (*.xlam)**
-4. Enable via `File → Options → Add-ins`
+---
 
-## 🖱 Usage
-- Right-click any cell
-- Select **Toggle Strikethrough Filter**
-- Run again to remove filter
+## Usage
 
-## ⚠ Limitations
-- Formatting-based detection requires per-row inspection (Excel limitation)
-- Extremely large sheets (>150k rows) may take a few seconds
+1. Select any cell in the target column  
+2. Run `ToggleStrikethroughFilter`  
+3. Enter the header row number  
+4. Run again to remove the filter  
 
-## 📜 License
+---
+
+## Safety
+
+- Idempotent (safe to run repeatedly)  
+- Never deletes user data  
+- Deletes only its own helper column  
+- No guessing or inference  
+
+---
+
+## Performance
+
+- Strikethrough is a formatting property → per-cell check required  
+- Optimized Range-based loop  
+- Practical limit ≈ **50k rows** (Excel/VBA constraint)  
+
+---
+
+## Notes
+
+- Header row is user-defined  
+- Partial strikethrough is supported  
+- Requires AutoFilter  
+
+---
+
+## License
+
 MIT License
+
