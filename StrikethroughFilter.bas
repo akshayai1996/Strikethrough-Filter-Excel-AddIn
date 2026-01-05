@@ -1,139 +1,108 @@
-Attribute VB_Name = "StrikethroughFilter"
+
 Option Explicit
 
-Private Const HELPER_HEADER As String = "__StrikeHelper__"
-Private Const MENU_CAPTION As String = "Toggle Strikethrough Filter"
+Private Const HELPER_MARKER As String = "___STRIKE_FILTER_HELPER___"
+Private Const FLAG_KEEP As String = "KEEP"
+Private Const FLAG_HIDE As String = "HIDE"
 
-'==================================================
-' MAIN TOGGLE (Right-Click)
-'==================================================
 Public Sub ToggleStrikethroughFilter()
 
-    Dim ws As Worksheet: Set ws = ActiveSheet
-    Dim targetRange As Range
-    Dim helperColIdx As Variant
-    Dim lastRow As Long, colNum As Long, i As Long
-    Dim arrResults() As Variant
-    Dim finalCol As Long, filterField As Long
-    Dim progressStep As Long
+    Dim ws As Worksheet
+    Set ws = ActiveSheet
 
-    '---------------- TOGGLE OFF ----------------
-    helperColIdx = Application.Match(HELPER_HEADER, ws.Rows(1), 0)
+    Dim helperCol As Long
+    Dim targetCol As Long
+    Dim headerRow As Long
+    Dim lastRow As Long
+    Dim dataRng As Range, c As Range
+    Dim arr() As Variant
+    Dim idx As Long
+    Dim userInput As Variant
+    Dim origCalc As XlCalculation
 
-    If Not IsError(helperColIdx) Then
-        If ws.FilterMode Then ws.ShowAllData
-        ws.Columns(helperColIdx).Hidden = False
-        ws.Columns(helperColIdx).Delete
-        Exit Sub
-    End If
+    origCalc = Application.Calculation
+    On Error GoTo CleanExit
 
-    '---------------- TOGGLE ON ----------------
-    On Error Resume Next
-    Set targetRange = Application.InputBox( _
-        "Select any cell in the column to filter by Strikethrough:", _
-        "Strikethrough Filter", Type:=8)
-    On Error GoTo 0
+    '==================================================
+    ' 1. TOGGLE OFF — DETECT VIA ROW 1 (BULLETPROOF)
+    '==================================================
+    For helperCol = 1 To ws.Columns.Count
+        If ws.Cells(1, helperCol).Value = HELPER_MARKER Then
+            Application.ScreenUpdating = False
 
-    If targetRange Is Nothing Then Exit Sub
+            If ws.AutoFilterMode Then
+                If ws.FilterMode Then ws.ShowAllData
+                ws.AutoFilterMode = False
+            End If
 
-    ToggleEvents False
+            ws.Columns(helperCol).Delete
+            Application.StatusBar = False
+            GoTo CleanExit
+        End If
+    Next helperCol
 
-    colNum = targetRange.Column
-    lastRow = ws.Cells(ws.Rows.Count, colNum).End(xlUp).Row
-    If lastRow < 2 Then GoTo SafeExit
+    '==================================================
+    ' 2. TOGGLE ON
+    '==================================================
+    targetCol = ActiveCell.Column
 
-    ReDim arrResults(1 To lastRow, 1 To 1)
-    arrResults(1, 1) = HELPER_HEADER
+    userInput = Application.InputBox( _
+        "Enter HEADER ROW number (this row will stay visible):", _
+        "Strikethrough Filter", Type:=2)
 
-    progressStep = Application.Max(1000, lastRow \ 20) ' ~5%
+    If userInput = False Then GoTo CleanExit
+    If Not IsNumeric(userInput) Then GoTo CleanExit
 
-    ' Core detection (True / False / Null)
-    For i = 2 To lastRow
-        With ws.Cells(i, colNum).Font
-            arrResults(i, 1) = (IsNull(.Strikethrough) Or .Strikethrough)
+    headerRow = CLng(userInput)
+    If headerRow < 1 Or headerRow > ws.Rows.Count Then GoTo CleanExit
+
+    lastRow = ws.Cells(ws.Rows.Count, targetCol).End(xlUp).Row
+    If lastRow <= headerRow Then GoTo CleanExit
+
+    ' Find safe helper column to the right
+    helperCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column + 1
+
+    Application.ScreenUpdating = False
+    Application.Calculation = xlCalculationManual
+
+    Set dataRng = ws.Range(ws.Cells(headerRow + 1, targetCol), _
+                           ws.Cells(lastRow, targetCol))
+
+    ReDim arr(1 To dataRng.Rows.Count + 1, 1 To 1)
+    arr(1, 1) = "FILTER"   ' header row label (NOT marker)
+
+    For Each c In dataRng.Cells
+        idx = c.Row - headerRow + 1
+        With c.Font
+            If IsNull(.Strikethrough) Or .Strikethrough Then
+                arr(idx, 1) = FLAG_KEEP
+            Else
+                arr(idx, 1) = FLAG_HIDE
+            End If
         End With
+    Next c
 
-        If i Mod progressStep = 0 Or i = lastRow Then
-            Application.StatusBar = _
-                "Strikethrough Filter: Processing " & _
-                Format(i / lastRow, "0%")
-        End If
-    Next i
+    ' Write helper column
+    ws.Cells(headerRow, helperCol).Resize(UBound(arr), 1).Value = arr
 
-    finalCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column + 1
-    ws.Cells(1, finalCol).Resize(lastRow, 1).Value = arrResults
-    ws.Columns(finalCol).Hidden = True
+    ' ?? Anchor marker ALWAYS in Row 1
+    ws.Cells(1, helperCol).Value = HELPER_MARKER
 
-    filterField = finalCol - ws.UsedRange.Column + 1
-    ws.UsedRange.AutoFilter Field:=filterField, Criteria1:="TRUE"
+    ' Apply filter
+    ws.Cells(headerRow, helperCol).Resize(UBound(arr), 1). _
+        AutoFilter Field:=1, Criteria1:=FLAG_KEEP
 
-SafeExit:
-    Application.StatusBar = False
-    ToggleEvents True
+    ws.Columns(helperCol).Hidden = True
 
+    Application.StatusBar = _
+        "? Strikethrough Filter ON (Column " & _
+        Split(ws.Cells(1, targetCol).Address, "$")(1) & _
+        ", Header Row " & headerRow & ") ?"
+
+CleanExit:
+    Application.Calculation = origCalc
+    Application.ScreenUpdating = True
 End Sub
 
-'==================================================
-' RIGHT-CLICK MENU
-'==================================================
-Public Sub AddRightClickMenu()
-    Dim btn As Object
-    On Error Resume Next
-    Application.CommandBars("Cell").Controls(MENU_CAPTION).Delete
-    On Error GoTo 0
 
-    Set btn = Application.CommandBars("Cell").Controls.Add(msoControlButton)
-    With btn
-        .Caption = MENU_CAPTION
-        .OnAction = "ToggleStrikethroughFilter"
-        .BeginGroup = True
-        .FaceId = 517
-    End With
-End Sub
 
-Public Sub RemoveRightClickMenu()
-    On Error Resume Next
-    Application.CommandBars("Cell").Controls(MENU_CAPTION).Delete
-    On Error GoTo 0
-End Sub
-
-'==================================================
-' AUTO-REHIDE HELPER
-'==================================================
-Public Sub RehideHelperIfVisible(ByVal ws As Worksheet)
-    Dim idx As Variant
-    idx = Application.Match(HELPER_HEADER, ws.Rows(1), 0)
-
-    If Not IsError(idx) Then
-        If ws.Columns(idx).Hidden = False Then
-            ws.Columns(idx).Hidden = True
-        End If
-    End If
-End Sub
-
-'==================================================
-' CLEANUP ON EXIT
-'==================================================
-Public Sub CleanupAllStrikeHelpers()
-    Dim ws As Worksheet, idx As Variant
-
-    For Each ws In Application.Worksheets
-        idx = Application.Match(HELPER_HEADER, ws.Rows(1), 0)
-        If Not IsError(idx) Then
-            If ws.FilterMode Then ws.ShowAllData
-            ws.Columns(idx).Hidden = False
-            ws.Columns(idx).Delete
-        End If
-    Next ws
-End Sub
-
-'==================================================
-' PERFORMANCE SWITCH
-'==================================================
-Private Sub ToggleEvents(ByVal State As Boolean)
-    With Application
-        .ScreenUpdating = State
-        .EnableEvents = State
-        .Calculation = IIf(State, xlCalculationAutomatic, xlCalculationManual)
-    End With
-End Sub
